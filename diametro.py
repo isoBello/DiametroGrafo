@@ -1,89 +1,90 @@
 #!/usr/bin/env pypy
 from collections import defaultdict
-import sys
+import time
+import math
+from collections import deque
 
 
-# Using a list of adjacency lists to represent the graph
-class Graph:
+class Graph:  # Using a list of adjacency to represent the graph
     def __init__(self, vertices):
         self.vertices = vertices
-        self.graph = defaultdict(list)
+        self.edges = defaultdict(list)
+        self.weights = {}
 
     def add_edge(self, source, dest, weight):
-        node = [dest, weight]
-        self.graph[source].insert(0, node)
+        # Storing the weights with a dict. The key is a -> b. Value is the weight himself
+        self.edges[source].append(dest)
+        self.edges[dest].append(source)
+        self.weights[(source, dest)] = weight
+        self.weights[(dest, source)] = weight
 
     def print_graph(self):
+        # Function just to see if the algorithm is creating the right graph
         for i in range(1, self.vertices + 1):
             print("Adjacency list of vertex {}\n head".format(i), end="")
-            temp = self.graph[i]
-            for _ in enumerate(temp):
-                print(" -> {}".format(temp[0][0]), end="")
+            for vertex in self.edges[i]:
+                print(" -> {}".format(vertex), end="")
             print(" \n")
 
-    def dfs_util(self, vertex, visited, path):
-        visited[vertex] = True
-        path.append(vertex)
-        for i in self.graph[vertex]:
-            if not visited[i[0]]:
-                self.dfs_util(i[0], visited, path)
-
-    def dfs(self, vertex):
-        path = []
+    def shortest_path(self, source, vertices_diameter):
         visited = ["dummy"]
+        distances = ["dummy"]
+
         for i in range(1, self.vertices + 1):
             visited.append(False)
-        self.dfs_util(vertex, visited, path)
-        return path
+            distances.append(math.inf)
+        distances[source] = 0
+        stack = deque()
+        stack.append(source)
+        visited[source] = True
 
-    def diameter(self):
-        paths = []
-        for i in range(1, self.vertices + 1):
-            paths.append(self.dfs(i))
-        paths.sort(key=len, reverse=True)
-        return paths[0]
+        while stack:
+            node = stack.popleft()
+            visited[node] = False
+            adjacencys = self.edges[node]
+            for v in adjacencys:
+                weight = self.weights[(node, v)]
+                if distances[v] > distances[node] + weight:
+                    distances[v] = distances[node] + weight
+                    if not visited[v]:
+                        stack.append(v)
+                        visited[v] = True
+        vertices_diameter[source] = distances
 
-    def dijkstra(self, path):
-        source = path[0]
-        dest = path[len(path) - 1]
-        shortest_paths = {source: (None, 0)}
+    def dijkstra(self, source, dest):
+        # Using Dijkstra to find the minimum path between the two vertices in the init - end of a diameter path
+        path_min = {source: (None, 0)}
         current_node = source
         visited = set()
-        destinations = []
 
         while current_node != dest:
             visited.add(current_node)
-            for adj in self.graph[current_node]:
-                destinations.append(adj[0])
-                weights = {adj[0]: (current_node, adj[1])}
-            weight_current = shortest_paths[current_node][1]
+            destinations = self.edges[current_node]
+            current_weight = path_min[current_node][1]
 
             for node in destinations:
-                weight_node = weights.pop(node)
-                weight = weight_node[1] + weight_current
-                if node not in shortest_paths:
-                    shortest_paths[node] = (current_node, weight)
+                weight = self.weights[(current_node, node)] + current_weight
+                if node not in path_min:
+                    path_min[node] = (current_node, weight)
                 else:
-                    current_shortest_weight = shortest_paths[node][1]
+                    current_shortest_weight = path_min[node][1]
                     if current_shortest_weight > weight:
-                        shortest_paths[node] = (current_node, weight)
-            next_destinations = {node: shortest_paths[node] for node in shortest_paths if node not in visited}
-            if not next_destinations:
-                return "There's no route possible between this two vertex."
-            current_node = min(next_destinations, key=lambda k: next_destinations[k][1])
+                        path_min[node] = (current_node, weight)
+            next_dest = {node: path_min[node] for node in path_min if node not in visited}
+            current_node = min(next_dest, key=lambda k: next_dest[k][1])
 
-        path = []
+        min_path = []
         while current_node is not None:
-            path.append(current_node)
-            next_node = shortest_paths[current_node][0]
+            min_path.append(current_node)
+            next_node = path_min[current_node][0]
             current_node = next_node
-        path = path[::-1]
-        return path
+        path_dist = {tuple(min_path[::-1]): weight}
+        return path_dist
 
 
 def read_file():
     data = []
-    with open("tests/graph_1.dat", "r") as archive:
+    with open("tests/graph_4.dat", "r") as archive:
         lines = archive.readlines()
         for line in lines:
             data.append(line)
@@ -96,15 +97,34 @@ def create_graph(data):
     for i in range(1, int(infos[1]) + 1):
         edges = data[i].split()
         graph.add_edge(int(edges[0]), int(edges[1]), int(edges[2]))
+    # graph.print_graph()
     operations(graph)
 
 
 def operations(graph):
-    path = graph.diameter()
-    diameter = len(path)
-    min_path = graph.dijkstra(path)
-    quantity_vertices = len(min_path)
-    print(min_path)
+    vertices_diameter = {}
+    for v in range(1, graph.vertices + 1):
+        graph.shortest_path(v, vertices_diameter)
+
+    current_diameter = 0
+
+    for key, distances in vertices_diameter.items():
+        distances.pop(0)
+        diameter = max(distances)
+        if diameter > current_diameter:
+            first_vertex = key
+            second_vertex = (distances.index(max(distances)) + 1)
+            current_diameter = diameter
+
+    min_path = graph.dijkstra(first_vertex, second_vertex)
+    for vertices in min_path.keys():
+        quantity_vertices = len(vertices)
+
+    with open("tests/output_graph_4.dat", "w") as archive:
+        archive.write(str(current_diameter) + "\n")
+        archive.write(str(first_vertex) + " " + str(second_vertex) + "\n")
+        archive.write(str(quantity_vertices) + "\n")
+        archive.write(str(list(min_path.keys())) + "\n")
 
 
 def main():
@@ -112,4 +132,6 @@ def main():
 
 
 if __name__ == "__main__":
+    # start = time.time()
     main()
+    # print(format((time.time() - start), ".3E"))
