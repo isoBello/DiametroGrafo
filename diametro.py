@@ -5,6 +5,10 @@ import time
 import math
 import sys
 
+INF = 999999
+diameter = 0
+first = -1
+second = -1
 
 class Graph:  # Using a list of adjacency to represent the graph
     def __init__(self, vertices):
@@ -27,14 +31,16 @@ class Graph:  # Using a list of adjacency to represent the graph
                 print(" -> {}".format(vertex), end="")
             print(" \n")
 
-    def shortest_path(self, source, vertices_diameter):
+    def shortest_path(self, source):
+        global diameter, first, second
+
         visited = ["dummy"]
         distances = ["dummy"]
         stack = deque()
 
         for i in range(1, self.vertices + 1):
             visited.append(False)
-            distances.append(math.inf)
+            distances.append(INF)
 
         distances[source] = 0
         visited[source] = True
@@ -51,7 +57,14 @@ class Graph:  # Using a list of adjacency to represent the graph
                     if not visited[v]:
                         stack.append(v)
                         visited[v] = True
-        vertices_diameter[source] = distances
+        # vertices_diameter[source] = distances
+        
+        distances.pop(0)
+        current_diameter = max(distances)
+        if current_diameter > diameter:
+            diameter = current_diameter
+            first = source
+            second = distances.index(diameter) + 1
 
     def dijkstra(self, source, dest):
         path_min = {source: (None, 0)}
@@ -82,14 +95,14 @@ class Graph:  # Using a list of adjacency to represent the graph
             min_path.append(u)
             next_node = path_min[u][0]
             u = next_node
-        path_dist = {tuple(min_path[::-1]): weight}
+        path_dist = (min_path[::-1])
 
         return path_dist
 
 
 def read_file():
     data = []
-    with open(sys.argv[1], "r") as archive:
+    with open(sys.argv[1], "r") as archive: # sys.argv[1]
         lines = archive.readlines()
         for line in lines:
             data.append(line)
@@ -103,34 +116,19 @@ def read_file():
 
 
 def operations(graph):
-    vertices_diameter = {}
     for v in range(1, graph.vertices + 1):
-        graph.shortest_path(v, vertices_diameter)
-
-    current_diameter = 0
-
-    for key, distances in vertices_diameter.items():
-        distances.pop(0)
-        diameter = max(distances)
-        if diameter > current_diameter:
-            first_vertex = key
-            second_vertex = (distances.index(max(distances)) + 1)
-            current_diameter = diameter
-
-    min_path = graph.dijkstra(first_vertex, second_vertex)
-    for vertices in min_path.keys():
-        quantity_vertices = len(vertices)
-
-    with open(sys.argv[2], "w") as archive:
-        archive.write(str(current_diameter) + "\n")
-        archive.write(str(first_vertex) + " " + str(second_vertex) + "\n")
-        archive.write(str(quantity_vertices) + "\n")
-        archive.write(str(list(min_path.keys())) + "\n")
+        graph.shortest_path(v)
 
 
-def main():
-    read_file()
+    min_path = graph.dijkstra(first, second)
+
+    with open(sys.argv[2], "w") as archive: # sys.argv[2]
+        archive.write(str(diameter) + "\n")
+        archive.write(str(first) + " " + str(second) + "\n")
+        archive.write(str(len(min_path)) + "\n")
+        archive.write(str(min_path) + "\n")
+
 
 
 if __name__ == "__main__":
-    main()
+    read_file()
