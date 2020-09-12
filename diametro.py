@@ -1,8 +1,9 @@
 #!/usr/bin/env pypy
 from collections import defaultdict
+from collections import deque
 import time
 import math
-from collections import deque
+import sys
 
 
 class Graph:  # Using a list of adjacency to represent the graph
@@ -29,20 +30,21 @@ class Graph:  # Using a list of adjacency to represent the graph
     def shortest_path(self, source, vertices_diameter):
         visited = ["dummy"]
         distances = ["dummy"]
+        stack = deque()
 
         for i in range(1, self.vertices + 1):
             visited.append(False)
             distances.append(math.inf)
+
         distances[source] = 0
-        stack = deque()
-        stack.append(source)
         visited[source] = True
+        stack.append(source)
 
         while stack:
             node = stack.popleft()
             visited[node] = False
-            adjacencys = self.edges[node]
-            for v in adjacencys:
+            neighbours = self.edges[node]
+            for v in neighbours:
                 weight = self.weights[(node, v)]
                 if distances[v] > distances[node] + weight:
                     distances[v] = distances[node] + weight
@@ -52,46 +54,45 @@ class Graph:  # Using a list of adjacency to represent the graph
         vertices_diameter[source] = distances
 
     def dijkstra(self, source, dest):
-        # Using Dijkstra to find the minimum path between the two vertices in the init - end of a diameter path
         path_min = {source: (None, 0)}
-        current_node = source
-        visited = set()
+        u = source
+        visited = ["dummy"]
 
-        while current_node != dest:
-            visited.add(current_node)
-            destinations = self.edges[current_node]
-            current_weight = path_min[current_node][1]
+        for i in range(1, self.vertices + 1):
+            visited.append(False)
 
-            for node in destinations:
-                weight = self.weights[(current_node, node)] + current_weight
-                if node not in path_min:
-                    path_min[node] = (current_node, weight)
+        while u != dest:
+            visited[u] = True
+            destinations = self.edges[u]
+            sum_weights = path_min[u][1]
+
+            for v in destinations:
+                weight = self.weights[(u, v)] + sum_weights
+                if v not in path_min:
+                    path_min[v] = (u, weight)
                 else:
-                    current_shortest_weight = path_min[node][1]
-                    if current_shortest_weight > weight:
-                        path_min[node] = (current_node, weight)
-            next_dest = {node: path_min[node] for node in path_min if node not in visited}
-            current_node = min(next_dest, key=lambda k: next_dest[k][1])
+                    current_weight_v = path_min[v][1]
+                    if current_weight_v > weight:
+                        path_min[v] = (u, weight)
+            next_dest = {w: path_min[w] for w in path_min if not visited[w]}
+            u = min(next_dest, key=lambda k: next_dest[k][1])
 
         min_path = []
-        while current_node is not None:
-            min_path.append(current_node)
-            next_node = path_min[current_node][0]
-            current_node = next_node
+        while u is not None:
+            min_path.append(u)
+            next_node = path_min[u][0]
+            u = next_node
         path_dist = {tuple(min_path[::-1]): weight}
+
         return path_dist
 
 
 def read_file():
     data = []
-    with open("tests/graph_4.dat", "r") as archive:
+    with open(sys.argv[1], "r") as archive:
         lines = archive.readlines()
         for line in lines:
             data.append(line)
-    create_graph(data)
-
-
-def create_graph(data):
     infos = data[0].split(" ")
     graph = Graph(int(infos[0]))
     for i in range(1, int(infos[1]) + 1):
@@ -120,7 +121,7 @@ def operations(graph):
     for vertices in min_path.keys():
         quantity_vertices = len(vertices)
 
-    with open("tests/output_graph_4.dat", "w") as archive:
+    with open(sys.argv[2], "w") as archive:
         archive.write(str(current_diameter) + "\n")
         archive.write(str(first_vertex) + " " + str(second_vertex) + "\n")
         archive.write(str(quantity_vertices) + "\n")
@@ -132,6 +133,4 @@ def main():
 
 
 if __name__ == "__main__":
-    # start = time.time()
     main()
-    # print(format((time.time() - start), ".3E"))
