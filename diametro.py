@@ -3,6 +3,7 @@ from collections import defaultdict
 import heapq
 from copy import deepcopy
 from multiprocessing import Pool
+from random import sample
 import sys
 
 global_graph = None
@@ -88,8 +89,9 @@ if __name__ == "__main__":
 
     # Function created just to see if the graph was created correct
     # graph.print_graph()
+    amostra = sample(len(graph.vertices), 150)
     pool = Pool()
-    results = pool.map(dijkstra, graph.vertices)
+    results = pool.map(dijkstra, amostra)
 
     heapq.heapify(results)
     diameter, mpath = heapq.heappop(results)
