@@ -1,18 +1,16 @@
 #!/usr/bin/env pypy
 from collections import defaultdict
-from collections import deque
-import time
-import math
+import heapq
+from copy import deepcopy
+from multiprocessing import Pool
 import sys
 
-INF = 999999
-diameter = 0
-first = -1
-second = -1
+global_graph = None
+
 
 class Graph:  # Using a list of adjacency to represent the graph
     def __init__(self, vertices):
-        self.vertices = vertices
+        self.vertices = set(range(1, vertices + 1))
         self.edges = defaultdict(list)
         self.weights = {}
 
@@ -25,110 +23,81 @@ class Graph:  # Using a list of adjacency to represent the graph
 
     def print_graph(self):
         # Function just to see if the algorithm is creating the right graph
-        for i in range(1, self.vertices + 1):
+        for i in range(1, len(self.vertices)):
             print("Adjacency list of vertex {}\n head".format(i), end="")
             for vertex in self.edges[i]:
                 print(" -> {}".format(vertex), end="")
             print(" \n")
 
-    def shortest_path(self, source):
-        global diameter, first, second
 
-        visited = ["dummy"]
-        distances = ["dummy"]
-        stack = deque()
+def dijkstra(source):
+    global global_graph
+    graph_copy = global_graph
 
-        for i in range(1, self.vertices + 1):
-            visited.append(False)
-            distances.append(INF)
+    stack = [(0, source)]
+    path = {source: (None, 0)}
 
-        distances[source] = 0
-        visited[source] = True
-        stack.append(source)
+    nodes = deepcopy(graph_copy.vertices)
+    visited = [False] * (len(nodes) + 1)
+    visited[source] = True
+    min_path = []
 
-        while stack:
-            node = stack.popleft()
-            visited[node] = False
-            neighbours = self.edges[node]
-            for v in neighbours:
-                weight = self.weights[(node, v)]
-                if distances[v] > distances[node] + weight:
-                    distances[v] = distances[node] + weight
-                    if not visited[v]:
-                        stack.append(v)
-                        visited[v] = True
-        # vertices_diameter[source] = distances
-        
-        distances.pop(0)
-        current_diameter = max(distances)
-        if current_diameter > diameter:
-            diameter = current_diameter
-            first = source
-            second = distances.index(diameter) + 1
+    while nodes and stack:
+        current_weight, u = heapq.heappop(stack)
 
-    def dijkstra(self, source, dest):
-        path_min = {source: (None, 0)}
-        u = source
-        visited = ["dummy"]
+        while u not in nodes:
+            current_weight, u = heapq.heappop(stack)
 
-        for i in range(1, self.vertices + 1):
-            visited.append(False)
+        nodes.remove(u)
 
-        while u != dest:
-            visited[u] = True
-            destinations = self.edges[u]
-            sum_weights = path_min[u][1]
+        for v in graph.edges[u]:
+            weight = current_weight + graph_copy.weights[u, v]
 
-            for v in destinations:
-                weight = self.weights[(u, v)] + sum_weights
-                if v not in path_min:
-                    path_min[v] = (u, weight)
-                else:
-                    current_weight_v = path_min[v][1]
-                    if current_weight_v > weight:
-                        path_min[v] = (u, weight)
-            next_dest = {w: path_min[w] for w in path_min if not visited[w]}
-            u = min(next_dest, key=lambda k: next_dest[k][1])
+            if not visited[v] or weight < path[v][1]:
+                visited[v] = True
+                path[v] = (u, weight)
+                heapq.heappush(stack, (weight, v))
 
-        min_path = []
-        while u is not None:
-            min_path.append(u)
-            next_node = path_min[u][0]
-            u = next_node
-        path_dist = (min_path[::-1])
+    node = u
+    min_path.append(node)
+    while node != source:
+        next_node = [v for k, v in path.items() if k == node][0][0]
+        path.pop(node)
+        node = next_node
+        min_path.append(node)
 
-        return path_dist
-
-
-def read_file():
-    data = []
-    with open(sys.argv[1], "r") as archive: # sys.argv[1]
-        lines = archive.readlines()
-        for line in lines:
-            data.append(line)
-    infos = data[0].split(" ")
-    graph = Graph(int(infos[0]))
-    for i in range(1, int(infos[1]) + 1):
-        edges = data[i].split()
-        graph.add_edge(int(edges[0]), int(edges[1]), int(edges[2]))
-    # graph.print_graph()
-    operations(graph)
-
-
-def operations(graph):
-    for v in range(1, graph.vertices + 1):
-        graph.shortest_path(v)
-
-
-    min_path = graph.dijkstra(first, second)
-
-    with open(sys.argv[2], "w") as archive: # sys.argv[2]
-        archive.write(str(diameter) + "\n")
-        archive.write(str(first) + " " + str(second) + "\n")
-        archive.write(str(len(min_path)) + "\n")
-        archive.write(str(min_path) + "\n")
-
+    return -current_weight, min_path
 
 
 if __name__ == "__main__":
-    read_file()
+    # Read file, create graph, and call Dijkstra. After this rotine, write the answer in archive
+
+    with open(sys.argv[1], "r") as archive:
+        lines = archive.readlines()
+        graph = Graph(int(lines[0][:lines[0].index(" ")]))
+        lines.pop(0)
+
+        for line in lines:
+            edges = line.split()
+            try:
+                graph.add_edge(int(edges[0]), int(edges[1]), int(edges[2]))
+            except IndexError:
+                break
+
+    global_graph = graph
+
+    # Function created just to see if the graph was created correct
+    # graph.print_graph()
+    pool = Pool()
+    results = pool.map(dijkstra, graph.vertices)
+
+    heapq.heapify(results)
+    diameter, mpath = heapq.heappop(results)
+
+    pool.close()
+
+    with open(sys.argv[2], "w") as archive:
+        archive.write(str(-diameter) + "\n")
+        archive.write(str(mpath[0]) + " " + str(mpath[-1]) + "\n")
+        archive.write(str(len(mpath)) + "\n")
+        archive.write(str(mpath) + "\n")
